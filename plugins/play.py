@@ -51,7 +51,7 @@ async def play_cmd(client: Client, message: Message):
             message.reply_to_message.audio or message.reply_to_message.voice
         ):
             return await _play_file(client, message, message.reply_to_message)
-        await message.reply_text("❌ Usage: `/play <song name or URL>`")
+        await message.reply_text("Error: Missing parameters. Usage: `/play <query or URL>`")
         return
 
     query = " ".join(message.command[1:])
@@ -119,7 +119,7 @@ async def play_cmd(client: Client, message: Message):
 @admin_or_auth
 async def vplay_cmd(client: Client, message: Message):
     """Play video stream in VC."""
-    await message.reply_text("🎬 Video stream playback initiated (same as /play, video mode).")
+    await message.reply_text("System: Video stream initialization initiated.")
     # Re-use play logic — PyTgCalls handles video automatically with VideoStream
     # Forward to play_cmd
     message.command[0] = "play"
@@ -133,7 +133,7 @@ async def fplay_cmd(client: Client, message: Message):
     """Play uploaded audio/video file."""
     reply = message.reply_to_message
     if not reply or not (reply.audio or reply.voice or reply.video or reply.document):
-        await message.reply_text("❌ Reply to an audio/video file with `/fplay`")
+        await message.reply_text("Error: Please reply to a valid media file with `/fplay`")
         return
     await _play_file(client, message, reply)
 
@@ -300,8 +300,9 @@ async def search_cmd(client: Client, message: Message):
 
     # Wait for user's number response
     try:
-        resp = await message.chat.listen(
-            filters.text & filters.user(message.from_user.id),
+        resp = await client.listen(
+            chat_id=chat_id,
+            filters=filters.text & filters.user(message.from_user.id),
             timeout=30,
         )
         choice = int(resp.text.strip())
@@ -310,11 +311,11 @@ async def search_cmd(client: Client, message: Message):
             message.command = ["play", selected["url"]]
             await play_cmd(client, message)
         else:
-            await message.reply_text("❌ Invalid choice.")
+            await message.reply_text("Error: Invalid selection. Please provide a number from the list.")
     except asyncio.TimeoutError:
-        await message.reply_text("⏰ Search timed out.")
+        await message.reply_text("System: Search session timed out.")
     except ValueError:
-        await message.reply_text("❌ Please send a valid number.")
+        await message.reply_text("Error: Numerical input required.")
 
 
 async def _play_youtube_playlist(client, message, url, status, lang):

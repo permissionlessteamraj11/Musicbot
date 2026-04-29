@@ -37,12 +37,16 @@ async def send_now_playing(client: Client, chat_id: int, track: Track, lang: str
             requester=track.requester_name,
             thumb_url=track.thumbnail,
         )
+
+        # High-tech progress bar representation
+        bar = "━━━━━━━━━━━━━━━━━━━━"
         caption = (
-            f"🎵 **Now Playing**\n\n"
-            f"**{track.title}**\n"
-            f"🎤 {track.artist}\n"
-            f"⏱ {format_duration(track.duration)}\n"
-            f"👤 {track.requester_name}"
+            f"**Active Stream: {track.title}**\n"
+            f"**Performer:** {track.artist}\n"
+            f"**Duration:** {format_duration(track.duration)}\n"
+            f"**Authorized by:** {track.requester_name}\n"
+            f"**Quality:** High-Fidelity 320kbps\n\n"
+            f"00:00 {bar} {format_duration(track.duration)}"
         )
         await client.send_photo(
             chat_id,
@@ -55,12 +59,12 @@ async def send_now_playing(client: Client, chat_id: int, track: Track, lang: str
         # Fallback text message
         await client.send_message(
             chat_id,
-            f"🎵 **Now Playing:** {track.title}\n🎤 {track.artist}\n⏱ {format_duration(track.duration)}",
+            f"**Active Stream:** {track.title}\n**Performer:** {track.artist}\n**Duration:** {format_duration(track.duration)}",
             reply_markup=_player_buttons(chat_id),
         )
 
 
-async def play_next(client: Client, chat_id: int, lang: str = "en"):
+async def play_next(client: Client, chat_id: int, lang: str = "en", retry_count: int = 0):
     """Called when current track ends or skip is requested."""
     q = get_queue(chat_id)
 
@@ -69,7 +73,7 @@ async def play_next(client: Client, chat_id: int, lang: str = "en"):
         await stop_vc(chat_id)
         await q.clear()
         try:
-            await client.send_message(chat_id, "😴 Sleep timer expired. Stopped playback.")
+            await client.send_message(chat_id, "System: Sleep timer expired. Streams terminated.")
         except Exception:
             pass
         return
@@ -87,14 +91,14 @@ async def play_next(client: Client, chat_id: int, lang: str = "en"):
             data = await resolve_query(lofi_url)
             if data:
                 track = Track(
-                    title="Lofi Hip Hop Radio 🎵",
+                    title="Lofi Radio Stream",
                     url=lofi_url,
                     stream_url=data["stream_url"],
                     duration=0,
                     thumbnail=data.get("thumbnail", ""),
                     artist="Lofi Girl",
                     requester_id=0,
-                    requester_name="24/7 Mode",
+                    requester_name="System 24/7",
                     source="youtube",
                 )
                 await q.set_current(track)
@@ -104,28 +108,37 @@ async def play_next(client: Client, chat_id: int, lang: str = "en"):
         else:
             await stop_vc(chat_id)
             try:
-                await client.send_message(chat_id, "✅ Queue ended. Left voice chat.")
+                await client.send_message(chat_id, "System: Queue processed. Connection terminated.")
             except Exception:
                 pass
             return
 
     # Resolve stream URL if needed
     if not track.stream_url:
-        data = await resolve_query(track.url or track.title)
-        if not data:
-            LOGGER.warning(f"Could not resolve: {track.title}")
+        try:
+            data = await resolve_query(track.url or track.title)
+            if not data:
+                raise Exception("Resolution failed")
+            track.stream_url = data["stream_url"]
+            track.thumbnail = data.get("thumbnail", track.thumbnail)
+            track.duration = data.get("duration", track.duration)
+        except Exception as e:
+            LOGGER.warning(f"Could not resolve: {track.title} ({e})")
+            if retry_count < 2:
+                LOGGER.info(f"Retrying resolution for {track.title} (Attempt {retry_count + 2})")
+                return await play_next(client, chat_id, lang, retry_count + 1)
             await play_next(client, chat_id, lang)
             return
-        track.stream_url = data["stream_url"]
-        track.thumbnail = data.get("thumbnail", track.thumbnail)
-        track.duration = data.get("duration", track.duration)
 
     # Pre-fetch next track
     asyncio.create_task(_prefetch_next(q))
 
     success = await play_track(chat_id, track)
     if not success:
-        LOGGER.error(f"play_track failed for {track.title}, skipping...")
+        LOGGER.error(f"play_track failed for {track.title}")
+        if retry_count < 2:
+            LOGGER.info(f"Retrying playback for {track.title} (Attempt {retry_count + 2})")
+            return await play_next(client, chat_id, lang, retry_count + 1)
         await play_next(client, chat_id, lang)
         return
 

@@ -125,10 +125,16 @@ async def _build_media_stream(track: Track, chat_id: int) -> MediaStream:
         mid=fx["mid"],
         treble=fx["treble"],
     )
+    # When using ffmpeg_parameters, the first argument to MediaStream
+    # can be the stream_url if we don't have -i in ffmpeg_parameters,
+    # but build_ffmpeg_cmd includes -i.
+    # In pytgcalls, if ffmpeg_parameters is used, it appends them to the default command.
+    # To have full control, we should ensure we don't double-include -i.
+
     return MediaStream(
         track.stream_url,
         audio_quality=AudioQuality.ULTRA_HIGH,
-        ffmpeg_parameters=" ".join(cmd[2:]),  # skip 'ffmpeg -y'
+        ffmpeg_parameters=" ".join(cmd[cmd.index("-i") + 2 :]),
     )
 
 

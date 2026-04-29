@@ -37,3 +37,4 @@ requests
 
 # ── Fonts (download separately, or bundle in assets/) ─
 # Poppins-Bold.ttf and Poppins-Regular.ttf from Google Fonts
+pyromod

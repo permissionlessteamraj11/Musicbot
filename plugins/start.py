@@ -25,26 +25,23 @@ async def _build_start_card(bot_name: str, stats: dict, uptime: str) -> bytes | 
     import os
 
     def _draw():
-        W, H = 640, 320
-        img = Image.new("RGBA", (W, H), (12, 12, 22, 255))
+        W, H = 800, 400
+        img = Image.new("RGBA", (W, H), (8, 8, 12, 255))
         draw = ImageDraw.Draw(img)
 
-        # Gradient strips
-        for i in range(H):
-            alpha = int(180 * (1 - i / H))
-            draw.line([(0, i), (W, i)], fill=(80, 40, 120, alpha))
+        # Subtle geometric patterns
+        for i in range(0, W, 40):
+            draw.line([(i, 0), (i, H)], fill=(20, 20, 30), width=1)
+        for i in range(0, H, 40):
+            draw.line([(0, i), (W, i)], fill=(20, 20, 30), width=1)
 
-        # Glow circles
-        for (cx, cy, r, col) in [
-            (80, 80, 100, (120, 60, 200, 30)),
-            (560, 240, 80, (60, 100, 200, 25)),
-        ]:
-            for dr in range(r, 0, -10):
-                a = col[3] - int(col[3] * (1 - dr / r))
-                draw.ellipse([cx - dr, cy - dr, cx + dr, cy + dr],
-                             fill=(*col[:3], max(0, a)))
+        # Glow
+        glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glow)
+        gd.ellipse([W//2-200, -100, W//2+200, 200], fill=(60, 60, 150, 40))
+        img = Image.alpha_composite(img, glow)
+        draw = ImageDraw.Draw(img)
 
-        # Title
         FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
         def _font(name, size):
             try:
@@ -52,25 +49,26 @@ async def _build_start_card(bot_name: str, stats: dict, uptime: str) -> bytes | 
             except Exception:
                 return ImageFont.load_default()
 
-        draw.text((W // 2, 80), "🎵", font=_font("Poppins-Bold.ttf", 48), fill=(255,255,255), anchor="mm")
-        draw.text((W // 2, 140), bot_name, font=_font("Poppins-Bold.ttf", 28), fill=(255, 255, 255), anchor="mm")
-        draw.text((W // 2, 178), "Blazing Fast • 320kbps • Multi-Source", 
-                  font=_font("Poppins-Regular.ttf", 14), fill=(180, 150, 220), anchor="mm")
+        # Logo text
+        draw.text((W // 2, 120), bot_name.upper(), font=_font("Montserrat-Bold.ttf", 48), fill=(255, 255, 255), anchor="mm")
+        draw.text((W // 2, 175), "HIGH-PERFORMANCE AUDIO STREAMING ENGINE",
+                  font=_font("Montserrat-Regular.ttf", 14), fill=(120, 120, 180), anchor="mm")
 
-        # Stats bar
-        y = 220
-        draw.rounded_rectangle([40, y, W - 40, y + 60], radius=12, fill=(30, 20, 50, 200))
-        items = [
-            ("👥", f"{stats['groups']}", "Groups"),
-            ("🎵", f"{stats['plays']}", "Plays"),
-            ("⏱", uptime, "Uptime"),
+        # Divider
+        draw.line([W//2-100, 210, W//2+100, 210], fill=(100, 100, 255, 100), width=2)
+
+        # Stats
+        y = 260
+        stats_data = [
+            (f"{stats['groups']}", "ACTIVE NODES"),
+            (f"{stats['plays']}", "TOTAL STREAMS"),
+            (uptime.upper(), "SYSTEM UPTIME"),
         ]
-        for i, (icon, val, label) in enumerate(items):
-            x = 100 + i * 180
-            draw.text((x, y + 14), f"{icon} {val}", font=_font("Poppins-Bold.ttf", 13),
-                      fill=(200, 180, 255), anchor="mm")
-            draw.text((x, y + 38), label, font=_font("Poppins-Regular.ttf", 11),
-                      fill=(140, 130, 180), anchor="mm")
+
+        for i, (val, label) in enumerate(stats_data):
+            x = W // 4 * (i + 1)
+            draw.text((x, y), val, font=_font("Montserrat-Bold.ttf", 22), fill=(255, 255, 255), anchor="mm")
+            draw.text((x, y + 35), label, font=_font("Montserrat-Regular.ttf", 11), fill=(100, 100, 140), anchor="mm")
 
         buf = io.BytesIO()
         img.convert("RGB").save(buf, "PNG")
@@ -84,18 +82,18 @@ def _start_buttons(me) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                "➕ Add to Group",
+                "Initialize System",
                 url=f"https://t.me/{me.username}?startgroup=true",
             ),
-            InlineKeyboardButton("📞 Support", url=Config.SUPPORT_LINK),
+            InlineKeyboardButton("Technical Support", url=Config.SUPPORT_LINK),
         ],
         [
-            InlineKeyboardButton("📊 Stats", callback_data="start_stats"),
-            InlineKeyboardButton("🎵 Commands", callback_data="start_help"),
+            InlineKeyboardButton("Statistics", callback_data="start_stats"),
+            InlineKeyboardButton("Documentation", callback_data="start_help"),
         ],
         [
-            InlineKeyboardButton("👤 Owner", url=f"tg://user?id={Config.OWNER_ID}"),
-            InlineKeyboardButton("🔗 Source", url=Config.UPSTREAM_REPO),
+            InlineKeyboardButton("System Owner", url=f"tg://user?id={Config.OWNER_ID}"),
+            InlineKeyboardButton("Source Code", url=Config.UPSTREAM_REPO),
         ],
     ])
 
@@ -128,11 +126,11 @@ async def start_cmd(client: Client, message: Message):
 async def start_group_cmd(client: Client, message: Message):
     me = await client.get_me()
     await message.reply_text(
-        f"👋 Hi! I'm **{Config.BOT_NAME}**\n"
-        f"Use `/play <song>` to start playing music!\n"
-        f"📋 `/help` for all commands.",
+        f"System Online: **{Config.BOT_NAME}** initialized.\n"
+        f"Execute `/play <query>` to begin streaming.\n"
+        f"Access `/help` for system documentation.",
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("🎵 Commands", callback_data="start_help")
+            InlineKeyboardButton("Documentation", callback_data="start_help")
         ]]),
     )
 
@@ -143,7 +141,7 @@ async def help_cmd(client: Client, message: Message):
     await message.reply_text(
         text,
         reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("➕ Add to Group",
+            InlineKeyboardButton("Initialize System",
                 url=f"https://t.me/{(await client.get_me()).username}?startgroup=true")
         ]]),
     )
@@ -167,7 +165,7 @@ async def start_callback(client: Client, query):
         await query.message.edit_caption(
             text,
             reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("« Back", callback_data="start_back")
+                InlineKeyboardButton("Return", callback_data="start_back")
             ]]),
         )
 
@@ -177,14 +175,14 @@ async def start_callback(client: Client, query):
             await query.message.edit_caption(
                 text,
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("« Back", callback_data="start_back")
+                    InlineKeyboardButton("Return", callback_data="start_back")
                 ]]),
             )
         except Exception:
             await query.message.edit_text(
                 text,
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("« Back", callback_data="start_back")
+                    InlineKeyboardButton("Return", callback_data="start_back")
                 ]]),
             )
 
@@ -223,12 +221,12 @@ async def inline_search(client: Client, query: InlineQuery):
         results.append(
             InlineQueryResultArticle(
                 title=r["title"][:50],
-                description=f"🎤 {r['artist'][:30]} | ⏱ {dur}",
+                description=f"Performer: {r['artist'][:30]} | Duration: {dur}",
                 input_message_content=InputTextMessageContent(
-                    f"🎵 **{r['title']}**\n"
-                    f"🎤 {r['artist']}\n"
-                    f"⏱ {dur}\n\n"
-                    f"Use `/play {r['url']}` to play!"
+                    f"**{r['title']}**\n"
+                    f"Performer: {r['artist']}\n"
+                    f"Duration: {dur}\n\n"
+                    f"Execute `/play {r['url']}` to initialize stream."
                 ),
                 thumb_url=r.get("thumbnail") or "https://i.imgur.com/6vMdxAy.png",
             )
