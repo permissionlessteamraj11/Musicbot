@@ -1,0 +1,39 @@
+# ── Telegram ─────────────────────────────────────────
+pyrogram==2.0.106
+tgcrypto
+pytgcalls>=4.0.0
+
+# ── Audio ─────────────────────────────────────────────
+yt-dlp
+spotipy
+
+# ── Database ──────────────────────────────────────────
+motor>=3.3.2
+aioredis>=2.0.1
+redis
+
+# ── Image Generation ──────────────────────────────────
+Pillow>=10.0.0
+colorthief
+
+# ── HTTP / Async ──────────────────────────────────────
+aiohttp>=3.9.0
+aiofiles
+
+# ── Config ────────────────────────────────────────────
+python-dotenv
+
+# ── Lyrics ────────────────────────────────────────────
+lyricsgenius
+
+# ── Web Panel ─────────────────────────────────────────
+fastapi
+uvicorn[standard]
+jinja2
+
+# ── System / Utils ────────────────────────────────────
+psutil
+requests
+
+# ── Fonts (download separately, or bundle in assets/) ─
+# Poppins-Bold.ttf and Poppins-Regular.ttf from Google Fonts

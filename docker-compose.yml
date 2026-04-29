@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  musicbot:
+    build: .
+    container_name: musicbot
+    restart: always
+    env_file: .env
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+    depends_on:
+      - redis
+      - mongodb
+    networks:
+      - botnet
+
+  redis:
+    image: redis:7-alpine
+    container_name: musicbot_redis
+    restart: always
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - botnet
+
+  mongodb:
+    image: mongo:6
+    container_name: musicbot_mongo
+    restart: always
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - botnet
+
+volumes:
+  redis_data:
+  mongo_data:
+
+networks:
+  botnet:
+    driver: bridge
