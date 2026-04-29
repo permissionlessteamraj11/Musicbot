@@ -47,8 +47,8 @@ pip install -r requirements.txt
 
 # 4. Download fonts
 mkdir -p assets/fonts cache/thumbnails logs
-curl -sL "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Bold.ttf" -o assets/fonts/Poppins-Bold.ttf
-curl -sL "https://github.com/google/fonts/raw/main/ofl/poppins/Poppins-Regular.ttf" -o assets/fonts/Poppins-Regular.ttf
+curl -L "https://github.com/google/fonts/raw/main/ofl/montserrat/static/Montserrat-Bold.ttf" -o assets/fonts/Montserrat-Bold.ttf
+curl -L "https://github.com/google/fonts/raw/main/ofl/montserrat/static/Montserrat-Regular.ttf" -o assets/fonts/Montserrat-Regular.ttf
 
 # 5. Configure
 cp .env.example .env
