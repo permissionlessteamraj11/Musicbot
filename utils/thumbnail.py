@@ -10,8 +10,8 @@ FONT_DIR = os.path.join(os.path.dirname(__file__), "..", "assets", "fonts")
 os.makedirs(FONT_DIR, exist_ok=True)
 os.makedirs("cache/thumbnails", exist_ok=True)
 
-CARD_W, CARD_H = 800, 280
-THUMB_R = 110  # radius for circular thumb
+CARD_W, CARD_H = 900, 350
+THUMB_R = 140
 
 
 def _load_font(name: str, size: int) -> ImageFont.FreeTypeFont:
@@ -48,19 +48,19 @@ def _dominant_color(img_bytes: bytes) -> tuple:
         ct = ColorThief(io.BytesIO(img_bytes))
         return ct.get_color(quality=1)
     except Exception:
-        return (30, 30, 50)
+        return (100, 100, 255)
 
 
 def _progress_bar_img(draw: ImageDraw.Draw, x: int, y: int, width: int, pct: float, color: tuple):
-    bar_h = 6
-    bg_color = (60, 60, 80)
-    draw.rounded_rectangle([x, y, x + width, y + bar_h], radius=3, fill=bg_color)
+    bar_h = 4
+    bg_color = (40, 40, 60)
+    draw.rounded_rectangle([x, y, x + width, y + bar_h], radius=2, fill=bg_color)
     fill_w = int(width * pct)
     if fill_w > 0:
-        draw.rounded_rectangle([x, y, x + fill_w, y + bar_h], radius=3, fill=color)
-    # dot
+        draw.rounded_rectangle([x, y, x + fill_w, y + bar_h], radius=2, fill=color)
+    # small glow dot
     dot_x = x + fill_w
-    draw.ellipse([dot_x - 6, y - 5, dot_x + 6, y + 11], fill=color)
+    draw.ellipse([dot_x - 4, y - 3, dot_x + 4, y + 7], fill=color)
 
 
 async def make_now_playing_card(
@@ -71,126 +71,104 @@ async def make_now_playing_card(
     thumb_url: str = None,
     progress: float = 0.0,
 ) -> str:
-    """Generates a Now Playing card image and returns its file path."""
+    """Generates a professional Now Playing card image."""
 
     thumb_bytes = None
     if thumb_url:
         thumb_bytes = await _download_image(thumb_url)
 
     def _build() -> str:
-        dom_color = _dominant_color(thumb_bytes) if thumb_bytes else (80, 60, 120)
+        dom_color = _dominant_color(thumb_bytes) if thumb_bytes else (100, 120, 255)
         r, g, b = dom_color
 
-        # ── Background ───────────────────────────────────────────
-        bg = Image.new("RGBA", (CARD_W, CARD_H), (15, 15, 25, 255))
+        # Background - Deep dark elegant blue/black
+        bg = Image.new("RGBA", (CARD_W, CARD_H), (10, 10, 15, 255))
 
-        # Blurred album art as full-width background
         if thumb_bytes:
             try:
                 art = Image.open(io.BytesIO(thumb_bytes)).convert("RGBA")
                 art = art.resize((CARD_W, CARD_H), Image.LANCZOS)
-                art = art.filter(ImageFilter.GaussianBlur(radius=22))
-                dark_overlay = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 160))
+                art = art.filter(ImageFilter.GaussianBlur(radius=40))
+                dark_overlay = Image.new("RGBA", (CARD_W, CARD_H), (0, 0, 0, 180))
                 bg = Image.alpha_composite(art, dark_overlay)
             except Exception:
                 pass
 
         draw = ImageDraw.Draw(bg)
 
-        # ── Circular Thumbnail (left) ─────────────────────────────
+        # Large Circular Thumbnail
         thumb_size = THUMB_R * 2
-        thumb_x, thumb_y = 30, (CARD_H - thumb_size) // 2
+        thumb_x, thumb_y = 40, (CARD_H - thumb_size) // 2
 
         if thumb_bytes:
             try:
                 art_sm = Image.open(io.BytesIO(thumb_bytes)).convert("RGBA")
                 circle_img = _circle_crop(art_sm, thumb_size)
 
-                # Glowing ring
-                ring = Image.new("RGBA", (thumb_size + 12, thumb_size + 12), (0, 0, 0, 0))
-                ring_draw = ImageDraw.Draw(ring)
-                ring_draw.ellipse(
-                    [0, 0, thumb_size + 12, thumb_size + 12],
-                    outline=(r, g, b, 200),
-                    width=4,
-                )
-                bg.paste(ring, (thumb_x - 6, thumb_y - 6), ring)
+                # Outer glow ring
+                for i in range(1, 10):
+                    alpha = int(100 / i)
+                    draw.ellipse(
+                        [thumb_x - i, thumb_y - i, thumb_x + thumb_size + i, thumb_y + thumb_size + i],
+                        outline=(r, g, b, alpha),
+                        width=1
+                    )
+
                 bg.paste(circle_img, (thumb_x, thumb_y), circle_img)
             except Exception:
-                draw.ellipse(
-                    [thumb_x, thumb_y, thumb_x + thumb_size, thumb_y + thumb_size],
-                    fill=(r, g, b, 100),
-                )
+                draw.ellipse([thumb_x, thumb_y, thumb_x+thumb_size, thumb_y+thumb_size], fill=(r,g,b, 100))
         else:
-            draw.ellipse(
-                [thumb_x, thumb_y, thumb_x + thumb_size, thumb_y + thumb_size],
-                fill=(r, g, b, 100),
-            )
-            draw.text(
-                (thumb_x + thumb_size // 2, thumb_y + thumb_size // 2),
-                "♪",
-                font=_load_font("Poppins-Bold.ttf", 60),
-                fill=(255, 255, 255),
-                anchor="mm",
-            )
+             draw.ellipse([thumb_x, thumb_y, thumb_x+thumb_size, thumb_y+thumb_size], fill=(40,40,60))
 
-        # ── Text area ─────────────────────────────────────────────
-        tx = thumb_x + thumb_size + 30
-        text_w = CARD_W - tx - 30
+        # Text Area
+        tx = thumb_x + thumb_size + 50
+        text_w = CARD_W - tx - 50
 
-        # NOW PLAYING label
+        # Subtitle
         draw.text(
-            (tx, 28),
-            "▶  NOW PLAYING",
-            font=_load_font("Poppins-Regular.ttf", 13),
+            (tx, 60),
+            "SYSTEM ACTIVE STREAM",
+            font=_load_font("Montserrat-Regular.ttf", 14),
             fill=(r, g, b),
         )
 
         # Title
-        title_font = _load_font("Poppins-Bold.ttf", 26)
-        title_short = title if len(title) <= 38 else title[:35] + "..."
-        draw.text((tx, 55), title_short, font=title_font, fill=(255, 255, 255))
+        title_font = _load_font("Montserrat-Bold.ttf", 36)
+        title_short = title if len(title) <= 30 else title[:27] + "..."
+        draw.text((tx, 90), title_short, font=title_font, fill=(255, 255, 255))
 
         # Artist
         draw.text(
-            (tx, 92),
-            f"🎤 {artist}",
-            font=_load_font("Poppins-Regular.ttf", 17),
-            fill=(200, 200, 220),
+            (tx, 145),
+            f"PERFORMER: {artist.upper()}",
+            font=_load_font("Montserrat-Regular.ttf", 18),
+            fill=(180, 180, 200),
         )
 
-        # Requester
+        # Requester & Specs
         draw.text(
-            (tx, 120),
-            f"👤 Requested by {requester}",
-            font=_load_font("Poppins-Regular.ttf", 14),
-            fill=(160, 160, 190),
+            (tx, 180),
+            f"AUTHORIZED BY: {requester.upper()}",
+            font=_load_font("Montserrat-Regular.ttf", 14),
+            fill=(140, 140, 160),
         )
 
-        # Duration
-        from utils.formatters import format_duration
-        elapsed = int(progress * duration)
-        dur_text = f"⏱ {format_duration(elapsed)}  /  {format_duration(duration)}"
         draw.text(
-            (tx, 148),
-            dur_text,
-            font=_load_font("Poppins-Regular.ttf", 14),
-            fill=(180, 180, 210),
+            (tx, 205),
+            "QUALITY: 320KBPS | SAMPLE RATE: 48KHZ",
+            font=_load_font("Montserrat-Bold.ttf", 12),
+            fill=(r, g, b, 180),
         )
 
         # Progress bar
-        _progress_bar_img(draw, tx, 185, text_w, progress, (r, g, b))
+        bar_y = 250
+        _progress_bar_img(draw, tx, bar_y, text_w, progress, (r, g, b))
 
-        # Waveform decoration (fake bars)
-        bar_x = tx
-        bar_y_base = CARD_H - 48
-        for i in range(35):
-            bar_h_val = 4 + (i % 5) * 5 + (i % 3) * 3
-            alpha = 80 + (i % 4) * 40
-            draw.rectangle(
-                [bar_x + i * 7, bar_y_base - bar_h_val, bar_x + i * 7 + 4, bar_y_base],
-                fill=(r, g, b, alpha),
-            )
+        # Time labels
+        from utils.formatters import format_duration
+        elapsed = int(progress * duration)
+        draw.text((tx, bar_y + 15), format_duration(elapsed), font=_load_font("Montserrat-Regular.ttf", 12), fill=(160, 160, 180))
+        draw.text((tx + text_w, bar_y + 15), format_duration(duration), font=_load_font("Montserrat-Regular.ttf", 12), fill=(160, 160, 180), anchor="ra")
 
         out_path = f"cache/thumbnails/{abs(hash(title + artist))}.png"
         bg.convert("RGB").save(out_path, "PNG", quality=95)

@@ -73,7 +73,7 @@ async def back_cmd(client: Client, message: Message):
     q = get_queue(chat_id)
     track = await q.get_prev()
     if not track:
-        await message.reply_text("❌ No previous track.")
+        await message.reply_text("Error: No previous track found in history.")
         return
     from assistant import play_track
     success = await play_track(chat_id, track)
@@ -105,13 +105,13 @@ async def volume_cmd(client: Client, message: Message):
     lang = await _lang(chat_id)
     if len(message.command) < 2:
         fx = get_fx(chat_id)
-        await message.reply_text(f"🔊 Current volume: **{fx['volume']}%**\nUsage: `/volume 1-200`")
+        await message.reply_text(f"Audio Level: **{fx['volume']}%**\nUsage: `/volume 1-200`")
         return
     try:
         vol = int(message.command[1])
         vol = max(1, min(200, vol))
     except ValueError:
-        await message.reply_text("❌ Invalid volume. Use 1-200.")
+        await message.reply_text("Error: Invalid volume level. Use 1-200.")
         return
     set_fx(chat_id, volume=vol)
     await update_stream_effects(chat_id)
@@ -126,13 +126,13 @@ async def speed_cmd(client: Client, message: Message):
     chat_id = message.chat.id
     lang = await _lang(chat_id)
     if len(message.command) < 2:
-        await message.reply_text("❌ Usage: `/speed 0.5-2.0`")
+        await message.reply_text("Usage: `/speed 0.5-2.0`")
         return
     try:
         speed = float(message.command[1])
         speed = max(0.5, min(2.0, speed))
     except ValueError:
-        await message.reply_text("❌ Invalid speed. Use 0.5-2.0")
+        await message.reply_text("Error: Invalid playback speed. Use 0.5-2.0")
         return
     set_fx(chat_id, speed=speed)
     await update_stream_effects(chat_id)
@@ -189,12 +189,12 @@ async def seek_cmd(client: Client, message: Message):
     chat_id = message.chat.id
     lang = await _lang(chat_id)
     if len(message.command) < 2:
-        await message.reply_text("❌ Usage: `/seek <seconds>`")
+        await message.reply_text("Usage: `/seek <seconds>`")
         return
     try:
         secs = int(message.command[1])
     except ValueError:
-        await message.reply_text("❌ Invalid seconds.")
+        await message.reply_text("Error: Invalid temporal offset.")
         return
     if await seek_stream(chat_id, secs):
         await message.reply_text(get_string(lang, "seeked", time=format_duration(secs)))
@@ -217,7 +217,7 @@ async def rewind_cmd(client: Client, message: Message):
         secs = 10
     # Rewind = seek to max(0, current - secs) — simplified to 0 here
     if await seek_stream(chat_id, 0):
-        await message.reply_text(f"⏪ Rewound by {secs} seconds.")
+        await message.reply_text(f"Stream: Rewound by {secs} seconds.")
 
 
 # ── Song Info ─────────────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ async def voteskip_cmd(client: Client, message: Message):
     else:
         btn = InlineKeyboardMarkup([[
             InlineKeyboardButton(
-                f"🗳 Vote Skip ({count}/{needed})",
+                f"Cast Skip Vote ({count}/{needed})",
                 callback_data=f"voteskip_{chat_id}"
             )
         ]])
@@ -271,16 +271,16 @@ async def voteskip_cmd(client: Client, message: Message):
 async def sleep_cmd(client: Client, message: Message):
     chat_id = message.chat.id
     if len(message.command) < 2:
-        await message.reply_text("❌ Usage: `/sleep <minutes>`")
+        await message.reply_text("Usage: `/sleep <minutes>`")
         return
     try:
         mins = int(message.command[1])
     except ValueError:
-        await message.reply_text("❌ Invalid minutes.")
+        await message.reply_text("Error: Invalid time duration.")
         return
     from utils.cache import set_sleep_timer
     await set_sleep_timer(chat_id, mins * 60)
-    await message.reply_text(f"😴 Sleep timer set for **{mins} minutes**. Bot will stop after queue.")
+    await message.reply_text(f"System: Sleep timer initialized for {mins} minutes.")
 
 
 # ── 24/7 Mode ─────────────────────────────────────────────────────────────────
@@ -293,10 +293,10 @@ async def mode_247(client: Client, message: Message):
     g = await get_group(chat_id)
     state = not g.get("247_mode", False)
     await update_group(chat_id, {"247_mode": state})
-    status = "✅ **ON**" if state else "❌ **OFF**"
+    status = "**ACTIVE**" if state else "**INACTIVE**"
     await message.reply_text(
-        f"⏰ **24/7 Mode** {status}\n"
-        f"{'Bot will play lofi radio when queue is empty.' if state else ''}"
+        f"Configuration: 24/7 Mode set to {status}\n"
+        f"{'System will maintain active lofi stream when queue is empty.' if state else ''}"
     )
 
 
@@ -312,37 +312,37 @@ async def player_callback(client: Client, query: CallbackQuery):
         state = _vc_state.get(chat_id, {})
         if state.get("paused"):
             await resume_vc(chat_id)
-            await query.answer("▶️ Resumed!")
+            await query.answer("Stream Resumed")
         else:
             await pause_vc(chat_id)
-            await query.answer("⏸ Paused!")
+            await query.answer("Stream Paused")
 
     elif action == "skip":
-        await query.answer("⏭ Skipping...")
+        await query.answer("Executing Skip...")
         await play_next(client, chat_id, lang)
 
     elif action == "loop":
         q = get_queue(chat_id)
         if q.mode == QUEUE_MODE_LOOP:
             q.set_mode(QUEUE_MODE_ONCE)
-            await query.answer("🔁 Loop OFF")
+            await query.answer("Loop Mode: Deactivated")
         else:
             q.set_mode(QUEUE_MODE_LOOP)
-            await query.answer("🔁 Loop ON!")
+            await query.answer("Loop Mode: Activated")
 
     elif action == "volup":
         fx = get_fx(chat_id)
         new_vol = min(200, fx["volume"] + 10)
         set_fx(chat_id, volume=new_vol)
         await update_stream_effects(chat_id)
-        await query.answer(f"🔊 Volume: {new_vol}%")
+        await query.answer(f"Audio Level: {new_vol}%")
 
     elif action == "voldown":
         fx = get_fx(chat_id)
         new_vol = max(1, fx["volume"] - 10)
         set_fx(chat_id, volume=new_vol)
         await update_stream_effects(chat_id)
-        await query.answer(f"🔉 Volume: {new_vol}%")
+        await query.answer(f"Audio Level: {new_vol}%")
 
     elif action == "queue":
         q = get_queue(chat_id)
@@ -350,7 +350,7 @@ async def player_callback(client: Client, query: CallbackQuery):
         if not tracks:
             await query.answer(get_string(lang, "queue_empty"), show_alert=True)
         else:
-            text = "📋 **Queue:**\n" + "\n".join(
+            text = "Active Queue:\n" + "\n".join(
                 f"{i+1}. {t.title[:40]}" for i, t in enumerate(tracks[:10])
             )
             await query.answer(text[:200], show_alert=True)
@@ -362,7 +362,7 @@ async def player_callback(client: Client, query: CallbackQuery):
         needed = Config.VOTE_SKIP_NEEDED
         if count >= needed:
             await clear_vote_skip(chat_id)
-            await query.answer("✅ Vote passed! Skipping...")
+            await query.answer("Success: Skip vote passed.")
             await play_next(client, chat_id, lang)
         else:
-            await query.answer(f"🗳 Voted! {count}/{needed} votes")
+            await query.answer(f"Vote Registered: {count}/{needed}")
